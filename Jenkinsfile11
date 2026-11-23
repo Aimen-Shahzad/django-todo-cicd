@@ -1,55 +1,102 @@
+
 pipeline {
-  agent any
+    agent any
 
-  stages {
-stage('Code Checkout') {
-    steps {
-        checkout scm
-        sh '''
-            echo "Repository Name: django-todo-cicd"
-            echo "Repository URL:"
-            git remote get-url origin
-            echo "Current Branch:"
-            git name-rev --name-only HEAD
-            echo "Workspace Files:"
-            ls -la
-        '''
-    }
-}
-      stage('Build') {
-      agent {
-        docker { image 'django:latest' }
-      }
-      steps {
-            // Run the Django server in the foreground
-            sh 'python3 manage.py check' 
-            echo 'Django server started. Proceeding to next stage...'
-      }
-    }
+    stages {
 
-    stage('Deploy') {
-      steps {
-        // Build the image
-        sh 'docker build -t todo .'
-        
-        // Run the container with a specific name (e.g., 'todo_container')
-        sh 'docker run -d -p 8000:8000 --name todo_container todo'
-      }
-      post {
-        always {
-          echo 'Waiting for 2 minutes before stopping and deleting containers...'
-          // Sleep for 2 minutes before stopping and deleting containers
-          sleep 120
+        // Stage 1: Code Checkout
+        stage('Code Checkout') {
+            steps {
+                checkout scm
 
-          // Stop the container using its name
-          echo 'Stopping container...'
-          sh 'docker stop todo_container'
+                sh '''
+                    echo "Repository Name: django-todo-cicd"
 
-          // Remove the container
-          echo 'Removing container...'
-          sh 'docker rm todo_container'
+                    echo "Repository URL:"
+                    git remote get-url origin
+
+                    echo "Current Branch:"
+                    git name-rev --name-only HEAD
+
+                    echo "Workspace Files:"
+                    ls -la
+                '''
+            }
         }
-      }
+
+        // Stage 2: Build
+        stage('Build') {
+            agent {
+                docker {
+                    image 'python:3.9-slim'
+                }
+            }
+
+            steps {
+                echo 'Installing Django dependencies...'
+
+                sh 'pip install django==3.2'
+
+                echo 'Checking Django application...'
+
+                sh 'python manage.py check'
+
+                echo 'Django application check completed successfully.'
+            }
+        }
+
+        // Stage 3: Deploy
+        stage('Deploy') {
+            steps {
+                echo 'Building Docker image...'
+
+                // Remove previous container if it exists
+                sh 'docker rm -f todo_container || true'
+
+                // Build Docker image
+                sh 'docker build -t todo .'
+
+                // Run Docker container
+                sh 'docker run -d -p 8000:8000 --name todo_container todo'
+
+                echo 'Container deployed successfully.'
+
+                // Verify running container
+                sh 'docker ps'
+            }
+
+            post {
+                always {
+                    echo 'Waiting for 2 minutes...'
+
+                    sleep 120
+
+                    echo 'Stopping container...'
+
+                    sh 'docker stop todo_container || true'
+
+                    echo 'Removing container...'
+
+                    sh 'docker rm todo_container || true'
+
+                    echo 'Container cleanup completed.'
+                }
+            }
+        }
     }
-  }
+
+    // Post Build Actions
+    post {
+        success {
+            echo 'Pipeline executed successfully'
+        }
+
+        failure {
+            echo 'Pipeline execution failed'
+        }
+
+        always {
+            echo 'Pipeline execution completed'
+        }
+    }
 }

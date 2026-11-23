@@ -4,7 +4,6 @@ pipeline {
 
     stages {
 
-        // Stage 1: Code Checkout
         stage('Code Checkout') {
             steps {
                 checkout scm
@@ -24,18 +23,18 @@ pipeline {
             }
         }
 
-        // Stage 2: Build
         stage('Build') {
             agent {
                 docker {
                     image 'python:3.9-slim'
+                    args '-u root'
                 }
             }
 
             steps {
                 echo 'Installing Django dependencies...'
 
-                sh 'pip install django==3.2'
+                sh 'python -m pip install --no-cache-dir django==3.2'
 
                 echo 'Checking Django application...'
 
@@ -45,23 +44,18 @@ pipeline {
             }
         }
 
-        // Stage 3: Deploy
         stage('Deploy') {
             steps {
                 echo 'Building Docker image...'
 
-                // Remove previous container if it exists
                 sh 'docker rm -f todo_container || true'
 
-                // Build Docker image
                 sh 'docker build -t todo .'
 
-                // Run Docker container
                 sh 'docker run -d -p 8000:8000 --name todo_container todo'
 
                 echo 'Container deployed successfully.'
 
-                // Verify running container
                 sh 'docker ps'
             }
 
@@ -85,7 +79,6 @@ pipeline {
         }
     }
 
-    // Post Build Actions
     post {
         success {
             echo 'Pipeline executed successfully'

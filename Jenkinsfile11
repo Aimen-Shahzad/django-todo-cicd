@@ -2,6 +2,20 @@ pipeline {
   agent any
 
   stages {
+stage('Code Checkout') {
+    steps {
+        checkout scm
+        sh '''
+            echo "Repository Name: django-todo-cicd"
+            echo "Repository URL:"
+            git remote get-url origin
+            echo "Current Branch:"
+            git name-rev --name-only HEAD
+            echo "Workspace Files:"
+            ls -la
+        '''
+    }
+}
       stage('Build') {
       agent {
         docker { image 'django:latest' }
